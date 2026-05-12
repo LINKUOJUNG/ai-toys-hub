@@ -67,6 +67,26 @@
   const previewCache = new Map();
   const previewEndpoint = '/api/link-preview?url=';
 
+  // ── Static image manifest (avoids API call for known products) ───────────
+  let imageManifest = null;
+  let manifestLoading = null;
+
+  function getManifest() {
+    if (imageManifest) return Promise.resolve(imageManifest);
+    if (manifestLoading) return manifestLoading;
+    manifestLoading = fetch('/assets/data/image-manifest.json', { cache: 'default' })
+      .then(r => r.ok ? r.json() : {})
+      .then(data => { imageManifest = data; return data; })
+      .catch(() => { imageManifest = {}; return {}; });
+    return manifestLoading;
+  }
+
+  function shopeeManifestKey(url) {
+    const m = (url || '').match(/shopee\.tw\/product\/(\d+)\/(\d+)/);
+    return m ? `${m[1]}_${m[2]}` : null;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   function isUsablePreviewUrl(url) {
     return /^https?:\/\//i.test(url || '') && !/^https?:\/\/[^/]+\/?.*#$/i.test(url || '') && url !== window.location.href;
   }
@@ -125,6 +145,24 @@
 
     if (previewCache.has(url)) {
       done(previewCache.get(url));
+      return;
+    }
+
+    // Check static manifest first (zero API cost for Shopee products)
+    const manifestKey = shopeeManifestKey(url);
+    if (manifestKey) {
+      getManifest().then(manifest => {
+        const entry = manifest[manifestKey];
+        if (entry && entry.image) {
+          const data = { image: entry.image, title: entry.title || '', description: '', url };
+          previewCache.set(url, data);
+          done(data);
+        } else {
+          // Not in manifest → skip API call for Shopee (always blocked)
+          previewCache.set(url, null);
+          done(null);
+        }
+      });
       return;
     }
 

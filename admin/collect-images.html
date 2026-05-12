@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品圖片抓取工具 - AI Toys Hub Admin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: monospace; background: #0a0a0a; color: #e0e0e0; padding: 20px; }
+  h1 { color: #0ff; margin-bottom: 10px; font-size: 1.4em; }
+  .desc { color: #888; margin-bottom: 20px; font-size: 0.85em; line-height: 1.6; }
+  .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  button { padding: 8px 18px; background: #0ff; color: #000; border: none; cursor: pointer; font-family: monospace; font-weight: bold; font-size: 0.9em; }
+  button:hover { background: #0cc; }
+  button.danger { background: #f55; color: #fff; }
+  button:disabled { background: #333; color: #666; cursor: not-allowed; }
+  #log { background: #111; border: 1px solid #333; padding: 12px; height: 300px; overflow-y: auto; font-size: 0.8em; line-height: 1.6; }
+  .ok { color: #0f0; }
+  .err { color: #f55; }
+  .info { color: #ff0; }
+  .skip { color: #888; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.8em; }
+  th { background: #1a1a1a; color: #0ff; padding: 6px 10px; text-align: left; border-bottom: 1px solid #333; }
+  td { padding: 6px 10px; border-bottom: 1px solid #1a1a1a; vertical-align: middle; }
+  td img { width: 60px; height: 60px; object-fit: cover; background: #222; }
+  .badge { display: inline-block; padding: 2px 8px; font-size: 0.75em; border-radius: 2px; }
+  .badge-ok { background: #0f02; color: #0f0; border: 1px solid #0f04; }
+  .badge-err { background: #f002; color: #f55; border: 1px solid #f004; }
+  .badge-wait { background: #ff02; color: #ff0; border: 1px solid #ff04; }
+  #outputBox { background: #111; border: 1px solid #333; padding: 12px; margin-top: 20px; font-size: 0.75em; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+  label { color: #aaa; font-size: 0.85em; }
+</style>
+</head>
+<body>
+<h1>🖼 Shopee 商品圖片批次抓取工具</h1>
+<p class="desc">
+  這個工具會在你的瀏覽器裡直接讀取每個 Shopee 商品頁，抓取真實商品圖片 URL，<br>
+  最終輸出 <code>image-manifest.json</code> 讓網站靜態使用，不需要後端 API。<br>
+  <strong style="color:#f80">⚠ 需要在本機開啟，不能在 Vercel 上使用。</strong>
+</p>
+
+<div class="controls">
+  <button id="btnStart">▶ 開始抓取 (全部)</button>
+  <button id="btnPause" disabled>⏸ 暫停</button>
+  <button id="btnResume" disabled>▶ 繼續</button>
+  <button id="btnExport" disabled>⬇ 匯出 JSON</button>
+  <button id="btnClear" class="danger">🗑 清除紀錄</button>
+</div>
+
+<div id="log"><span class="info">等待開始...</span></div>
+
+<table id="resultTable">
+<thead>
+<tr><th>#</th><th>縮圖</th><th>商品名稱</th><th>圖片 URL</th><th>狀態</th></tr>
+</thead>
+<tbody id="resultBody"></tbody>
+</table>
+
+<div id="outputBox" style="display:none"></div>
+
+<script>
+const PRODUCTS = [
+  { url: 'https://shopee.tw/product/1723995610/56957274789', name: 'AI小恐龍AI智能玩具馬年玩具' },
+  { url: 'https://shopee.tw/product/1723995610/58106354408', name: '喜玩伴AI小恐龍ai智能玩具' },
+  { url: 'https://shopee.tw/product/1710359842/57057365561', name: 'AI智能玩具 #3' },
+  { url: 'https://shopee.tw/product/1710359842/43379342023', name: 'AI智能玩具 #4' },
+  { url: 'https://shopee.tw/product/60072539/29044557824', name: 'AI玩具 #5' },
+  { url: 'https://shopee.tw/product/43506174/41361575564', name: 'AI寵物玩具 #6' },
+  { url: 'https://shopee.tw/product/1677119390/41480608346', name: 'AI毛絨玩具 #7' },
+  { url: 'https://shopee.tw/product/1677119390/41380608366', name: 'AI毛絨玩具 #8' },
+  { url: 'https://shopee.tw/product/1677119390/41180608381', name: 'AI機器人 #9' },
+  { url: 'https://shopee.tw/product/1677119390/55759944466', name: 'AI毛絨玩具 #10' },
+  { url: 'https://shopee.tw/product/1684066723/53009426973', name: 'AI機器人 #11' },
+  { url: 'https://shopee.tw/product/1684066723/52909427035', name: 'AI毛絨玩具 #12' },
+  { url: 'https://shopee.tw/product/1674011197/49759154583', name: 'AI機器人 #13' },
+  { url: 'https://shopee.tw/product/1674011197/49659154700', name: 'AI毛絨玩具 #14' },
+  { url: 'https://shopee.tw/product/1806692325/47659892489', name: 'AI毛絨玩具 #15' },
+  { url: 'https://shopee.tw/product/34701129/42378512186', name: 'AI寵物 #16' },
+  { url: 'https://shopee.tw/product/1674011197/48710266965', name: 'AI機器人 #17' },
+  { url: 'https://shopee.tw/product/1806692325/50959609800', name: 'AI毛絨玩具 #18' },
+  { url: 'https://shopee.tw/product/1806692325/57209621629', name: 'AI機器人 #19' },
+  { url: 'https://shopee.tw/product/1503200681/41354148388', name: 'AI寵物 #20' },
+  { url: 'https://shopee.tw/product/1657943889/51259185184', name: 'AI毛絨玩具 #21' },
+  { url: 'https://shopee.tw/product/1521455508/55307262513', name: 'AI學習玩具 #22' },
+  { url: 'https://shopee.tw/product/1592515454/49160098659', name: 'AI毛絨玩具 #23' },
+  { url: 'https://shopee.tw/product/634977489/25045531159', name: 'AI寵物 #24' },
+  { url: 'https://shopee.tw/product/9776389/41407162155', name: 'AI寵物 #25' },
+  { url: 'https://shopee.tw/product/1674560949/41380411393', name: 'AI機器人 #26' },
+  { url: 'https://shopee.tw/product/1658048675/51159065665', name: 'AI毛絨玩具 #27' },
+  { url: 'https://shopee.tw/product/1658048675/51159065613', name: 'AI毛絨玩具 #28' },
+  { url: 'https://shopee.tw/product/1658048675/48559076612', name: 'AI機器人 #29' },
+  { url: 'https://shopee.tw/product/1658048675/41530171900', name: 'AI毛絨玩具 #30' },
+  { url: 'https://shopee.tw/product/1658048675/51159065609', name: 'AI毛絨玩具 #31' },
+  { url: 'https://shopee.tw/product/1674013027/26244730410', name: 'AI玩具 #32' },
+  { url: 'https://shopee.tw/product/1674013027/51960250909', name: 'AI玩具 #33' },
+  { url: 'https://shopee.tw/product/1627320450/55359481611', name: 'AI玩具 #34' },
+  { url: 'https://shopee.tw/product/30796419/46258425580', name: 'AI玩具 #35' },
+  { url: 'https://shopee.tw/product/340840204/45903128978', name: 'AI玩具 #36' },
+  { url: 'https://shopee.tw/product/807451874/47359149741', name: 'AI玩具 #37' },
+  { url: 'https://shopee.tw/product/1357154784/48609223663', name: 'AI玩具 #38' },
+  { url: 'https://shopee.tw/product/1043690/45808638431', name: 'AI玩具 #39' },
+  { url: 'https://shopee.tw/product/1677119390/48809964378', name: 'AI毛絨玩具 #40' },
+];
+
+const manifest = {};
+let running = false, paused = false, currentIdx = 0;
+const log = document.getElementById('log');
+const tbody = document.getElementById('resultBody');
+
+function logMsg(msg, cls='info') {
+  const d = new Date().toLocaleTimeString('zh-TW');
+  log.innerHTML += `<div class="${cls}">[${d}] ${msg}</div>`;
+  log.scrollTop = log.scrollHeight;
+}
+
+function urlKey(url) {
+  const m = url.match(/product\/(\d+)\/(\d+)/);
+  return m ? `${m[1]}_${m[2]}` : url;
+}
+
+async function fetchShopeeImage(product) {
+  const { url } = product;
+  const m = url.match(/product\/(\d+)\/(\d+)/);
+  if (!m) return { image: '', title: '' };
+  const shopid = m[1], itemid = m[2];
+
+  // Method 1: Shopee API v4 item get (requires cookies from user's browser session)
+  try {
+    const apiUrl = `https://shopee.tw/api/v4/item/get?itemid=${itemid}&shopid=${shopid}`;
+    const resp = await fetch(apiUrl, {
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Referer': url,
+        'x-api-source': 'pc',
+      }
+    });
+    const data = await resp.json();
+    if (data.data) {
+      const item = data.data;
+      const images = item.images || [];
+      const imgHash = images[0] || item.image || '';
+      if (imgHash && imgHash.length > 10) {
+        const imgUrl = `https://down-tw.img.susercontent.com/file/${imgHash}`;
+        return { image: imgUrl, title: item.name || '' };
+      }
+    }
+  } catch(e) { /* continue */ }
+
+  // Method 2: fetch product page (works with real browser cookies/session)
+  try {
+    const resp = await fetch(url, {
+      credentials: 'include',
+      headers: { 'Accept': 'text/html', 'Referer': 'https://shopee.tw/' }
+    });
+    const html = await resp.text();
+    const ogImg = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i)?.[1] || '';
+    const ogTitle = html.match(/<meta[^>]+property="og:title"[^>]+content="([^"]+)"/i)?.[1] || '';
+    if (ogImg && !ogImg.includes('icon') && !ogImg.includes('logo') && !ogImg.includes('ios_icon')) {
+      return { image: ogImg, title: ogTitle };
+    }
+    // look for susercontent image hash in HTML
+    const hashMatch = html.match(/["'](down-tw\.img\.susercontent\.com\/file\/[a-f0-9_]+)["']/i);
+    if (hashMatch) return { image: 'https://' + hashMatch[1], title: ogTitle };
+    // look for __INITIAL_STATE__ or window.initialData
+    const stateMatch = html.match(/window\.__initialState__\s*=\s*({.+?});\s*(?:window|<\/)/s);
+    if (stateMatch) {
+      try {
+        const state = JSON.parse(stateMatch[1]);
+        const item = state.productDetail?.data?.item || {};
+        const imgHash = (item.images || [])[0] || item.image || '';
+        if (imgHash) return { image: `https://down-tw.img.susercontent.com/file/${imgHash}`, title: item.name || '' };
+      } catch(e2) {}
+    }
+  } catch(e) { /* continue */ }
+
+  return { image: '', title: '' };
+}
+
+async function processProduct(idx) {
+  const product = PRODUCTS[idx];
+  const key = urlKey(product.url);
+  const tr = document.getElementById(`tr-${idx}`);
+  if (tr) tr.querySelector('.status').innerHTML = '<span class="badge badge-wait">抓取中...</span>';
+
+  try {
+    const result = await fetchShopeeImage(product);
+    manifest[key] = { image: result.image, title: result.title || product.name, url: product.url };
+
+    if (tr) {
+      const imgCell = tr.querySelector('.img-cell');
+      const urlCell = tr.querySelector('.url-cell');
+      const statusCell = tr.querySelector('.status');
+      if (result.image) {
+        imgCell.innerHTML = `<img src="${result.image}" onerror="this.style.opacity=0.2">`;
+        urlCell.innerHTML = `<small style="color:#aaa">${result.image.substring(0,60)}...</small>`;
+        statusCell.innerHTML = '<span class="badge badge-ok">✓ 成功</span>';
+        logMsg(`[${idx+1}] ${product.name.substring(0,30)} → 找到圖片`, 'ok');
+      } else {
+        statusCell.innerHTML = '<span class="badge badge-err">✗ 無圖</span>';
+        logMsg(`[${idx+1}] ${product.name.substring(0,30)} → 無法取得圖片`, 'err');
+      }
+    }
+  } catch(e) {
+    logMsg(`[${idx+1}] 錯誤: ${e.message}`, 'err');
+    if (tr) tr.querySelector('.status').innerHTML = '<span class="badge badge-err">✗ 錯誤</span>';
+  }
+}
+
+function buildTable() {
+  tbody.innerHTML = '';
+  PRODUCTS.forEach((p, i) => {
+    const tr = document.createElement('tr');
+    tr.id = `tr-${i}`;
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td class="img-cell"><div style="width:60px;height:60px;background:#222;display:flex;align-items:center;justify-content:center;color:#555;font-size:1.5em">?</div></td>
+      <td style="max-width:200px">${p.name}</td>
+      <td class="url-cell"><small style="color:#555">${p.url}</small></td>
+      <td class="status"><span class="badge badge-wait">等待</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function startAll() {
+  running = true; paused = false;
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('btnPause').disabled = false;
+  document.getElementById('btnExport').disabled = true;
+
+  for (let i = currentIdx; i < PRODUCTS.length; i++) {
+    if (!running) break;
+    while (paused) await new Promise(r => setTimeout(r, 300));
+    currentIdx = i;
+    await processProduct(i);
+    await new Promise(r => setTimeout(r, 800)); // be polite
+  }
+
+  running = false;
+  document.getElementById('btnPause').disabled = true;
+  document.getElementById('btnResume').disabled = true;
+  document.getElementById('btnExport').disabled = false;
+  logMsg(`完成！共 ${Object.keys(manifest).length} 筆，成功 ${Object.values(manifest).filter(v=>v.image).length} 筆`, 'ok');
+}
+
+document.getElementById('btnStart').addEventListener('click', () => {
+  buildTable();
+  startAll();
+});
+
+document.getElementById('btnPause').addEventListener('click', () => {
+  paused = true;
+  document.getElementById('btnPause').disabled = true;
+  document.getElementById('btnResume').disabled = false;
+  logMsg('已暫停', 'info');
+});
+
+document.getElementById('btnResume').addEventListener('click', () => {
+  paused = false;
+  document.getElementById('btnPause').disabled = false;
+  document.getElementById('btnResume').disabled = true;
+  logMsg('繼續', 'info');
+});
+
+document.getElementById('btnExport').addEventListener('click', () => {
+  const json = JSON.stringify(manifest, null, 2);
+  const box = document.getElementById('outputBox');
+  box.style.display = 'block';
+  box.textContent = json;
+
+  // also trigger download
+  const blob = new Blob([json], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'image-manifest.json';
+  a.click();
+  logMsg('已匯出 image-manifest.json', 'ok');
+});
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  running = false; paused = false; currentIdx = 0;
+  log.innerHTML = '<span class="info">已清除</span>';
+  tbody.innerHTML = '';
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('btnPause').disabled = true;
+  document.getElementById('btnResume').disabled = true;
+  document.getElementById('btnExport').disabled = true;
+});
+
+// Init table
+buildTable();
+logMsg('工具已就緒。點擊「開始抓取」。注意：需要在瀏覽器中已登入 Shopee 才能獲得最佳結果。', 'info');
+</script>
+</body>
+</html>
