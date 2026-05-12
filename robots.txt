@@ -6,4 +6,4 @@ User-agent: Mediapartners-Google
 Allow: /
 
 # Sitemap
-Sitemap: https://your-domain.com/sitemap.xml
+Sitemap: https://ai-toys-hub.vercel.app/sitemap.xml
