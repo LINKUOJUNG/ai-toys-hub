@@ -63,6 +63,114 @@
     });
   }
 
+  /* -------- Link Preview API:聯盟商品圖片自動抓取 -------- */
+  const previewCache = new Map();
+  const previewEndpoint = '/api/link-preview?url=';
+
+  function isUsablePreviewUrl(url) {
+    return /^https?:\/\//i.test(url || '') && !/^https?:\/\/[^/]+\/?.*#$/i.test(url || '') && url !== window.location.href;
+  }
+
+  function getCardPreviewUrl(card) {
+    const explicit = card.getAttribute('data-preview-url') || card.querySelector('[data-preview-url]')?.getAttribute('data-preview-url');
+    if (isUsablePreviewUrl(explicit)) return explicit;
+    const sponsored = [...card.querySelectorAll('a[rel*="sponsored"]')]
+      .map(link => link.getAttribute('href') || '')
+      .find(href => isUsablePreviewUrl(href));
+    return sponsored || '';
+  }
+
+  function ensurePreviewImage(thumb) {
+    let img = thumb.querySelector('img.preview-img');
+    if (!img) {
+      img = document.createElement('img');
+      img.className = 'preview-img';
+      img.alt = thumb.getAttribute('aria-label') || '商品圖片';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      thumb.appendChild(img);
+    }
+    return img;
+  }
+
+  function applyPreviewToCard(card, preview) {
+    if (!preview) return;
+    const thumb = card.querySelector('.product-thumb, .detail-main-img, .link-preview-thumb');
+    if (thumb && preview.image) {
+      const img = ensurePreviewImage(thumb);
+      img.onload = () => thumb.classList.add('preview-loaded');
+      img.onerror = () => thumb.classList.add('preview-failed');
+      img.src = preview.image;
+    }
+
+    const title = card.querySelector('[data-preview-field="title"]');
+    if (title && preview.title) title.textContent = preview.title;
+    const desc = card.querySelector('[data-preview-field="description"]');
+    if (desc && preview.description) desc.textContent = preview.description;
+    const links = card.querySelectorAll('[data-preview-field="link"]');
+    if (links.length && preview.url) links.forEach(link => { link.href = preview.url; });
+  }
+
+  function loadPreview(card) {
+    const url = getCardPreviewUrl(card);
+    if (!url || card.dataset.previewLoaded) return;
+    card.dataset.previewLoaded = '1';
+    card.classList.add('preview-loading');
+
+    const done = data => {
+      applyPreviewToCard(card, data);
+      card.classList.remove('preview-loading');
+      card.classList.toggle('preview-empty', !data?.image);
+    };
+
+    if (previewCache.has(url)) {
+      done(previewCache.get(url));
+      return;
+    }
+
+    fetch(previewEndpoint + encodeURIComponent(url), { signal: AbortSignal.timeout(9000) })
+      .then(res => res.ok ? res.json() : Promise.reject(new Error('preview failed')))
+      .then(data => {
+        previewCache.set(url, data);
+        done(data);
+      })
+      .catch(() => {
+        previewCache.set(url, null);
+        done(null);
+      });
+  }
+
+  const previewCards = [...document.querySelectorAll('.product-card, .link-preview-card')]
+    .filter(card => getCardPreviewUrl(card));
+  if ('IntersectionObserver' in window) {
+    const previewObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        previewObserver.unobserve(entry.target);
+        loadPreview(entry.target);
+      });
+    }, { rootMargin: '220px' });
+    previewCards.forEach(card => previewObserver.observe(card));
+  } else {
+    previewCards.forEach(loadPreview);
+  }
+
+  const previewForm = document.getElementById('linkPreviewForm');
+  if (previewForm) {
+    previewForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const input = previewForm.querySelector('input[name="url"]');
+      const card = document.getElementById('linkPreviewResult');
+      const url = input?.value.trim();
+      if (!card || !isUsablePreviewUrl(url)) return;
+      card.setAttribute('data-preview-url', url);
+      card.dataset.previewLoaded = '';
+      card.classList.remove('preview-empty');
+      card.querySelectorAll('[data-preview-field="link"]').forEach(link => { link.href = url; });
+      loadPreview(card);
+    });
+  }
+
   /* -------- 根據 URL 參數高亮分類 (簡單路由) -------- */
   const params = new URLSearchParams(window.location.search);
   const cat = params.get('cat');
