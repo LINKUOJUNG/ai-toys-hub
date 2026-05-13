@@ -70,6 +70,10 @@ button {
   background: none;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 /* ---------- Layout ---------- */
 .container {
   width: 100%;
@@ -1020,6 +1024,10 @@ button {
   color: var(--text-mid);
 }
 
+.tool-actions {
+  margin-top: 12px;
+}
+
 .link-preview-form {
   display: flex;
   gap: 10px;
@@ -1396,3 +1404,184 @@ button {
   .hero h1 { font-size: 26px; }
   .detail-main-img { font-size: 120px; }
 }
+/* ---------- Admin 後台 ---------- */
+.admin-page {
+  background: #f6f7fb;
+}
+
+.admin-shell {
+  padding-top: 34px;
+  padding-bottom: 70px;
+}
+
+.admin-hero,
+.admin-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  padding: 28px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, #fff, #fff3f5 55%, #edf8ff);
+}
+
+.admin-hero h1 {
+  font-size: 30px;
+  margin-bottom: 8px;
+}
+
+.admin-hero p {
+  color: var(--text-mid);
+  max-width: 760px;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-card {
+  padding: 24px;
+}
+
+.admin-card h2 {
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+
+.admin-form {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-form.compact {
+  max-width: 420px;
+}
+
+.admin-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-mid);
+}
+
+.admin-form input,
+.admin-form select,
+.admin-form textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 11px 13px;
+  background: #fff;
+  color: var(--text-dark);
+  font: inherit;
+  outline: none;
+}
+
+.admin-form input:focus,
+.admin-form select:focus,
+.admin-form textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(255,66,77,.1);
+}
+
+.admin-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.admin-actions,
+.admin-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-status,
+.admin-note {
+  color: var(--text-mid);
+  font-size: 13px;
+}
+
+.admin-status.error,
+.btn-mini.danger {
+  color: var(--primary);
+}
+
+.admin-preview-card {
+  max-width: 360px;
+}
+
+.admin-list-card {
+  grid-column: 1 / -1;
+}
+
+.admin-product-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-list-item {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-soft);
+}
+
+.admin-list-item img {
+  width: 74px;
+  height: 58px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.admin-list-item strong,
+.admin-list-item span {
+  display: block;
+}
+
+.admin-list-item strong {
+  line-height: 1.4;
+}
+
+.admin-list-item span {
+  color: var(--text-mid);
+  font-size: 13px;
+  margin-top: 3px;
+}
+
+.admin-product-card {
+  order: -1;
+}
+
+@media (max-width: 900px) {
+  .admin-grid,
+  .admin-two-col {
+    grid-template-columns: 1fr;
+  }
+  .admin-list-item {
+    grid-template-columns: 58px 1fr;
+  }
+  .admin-list-item button {
+    grid-column: span 1;
+  }
+}
+

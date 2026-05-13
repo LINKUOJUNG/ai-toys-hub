@@ -115,6 +115,31 @@ async function fetchWithTimeout(url, ua) {
   } finally { clearTimeout(timeout); }
 }
 
+async function resolveShopeeUrl(target) {
+  if (target.pathname.match(/\/(?:product\/)?\d+\/\d+/)) return target;
+  for (const ua of USER_AGENTS) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const resp = await fetch(target.toString(), {
+        redirect: 'follow',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': ua,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.7',
+        },
+      });
+      clearTimeout(timeout);
+      if (resp.url) {
+        const resolved = new URL(resp.url);
+        if (resolved.hostname.includes('shopee.tw')) return resolved;
+      }
+    } catch {}
+  }
+  return target;
+}
+
 /**
  * Try Shopee internal API to get product image hash.
  * Returns { image, title } or null.
@@ -176,8 +201,9 @@ export default async function handler(req, res) {
   // ── Shopee special handling ──────────────────────────────────────────────
   const isShopee = target.hostname.includes('shopee.tw');
   if (isShopee) {
+    const resolvedTarget = await resolveShopeeUrl(target);
     // Parse shopid / itemid from URL path: /product/<shopid>/<itemid>
-    const m = target.pathname.match(/\/product\/(\d+)\/(\d+)/);
+    const m = resolvedTarget.pathname.match(/\/(?:product\/)?(\d+)\/(\d+)/);
     if (m) {
       const [, shopid, itemid] = m;
       const manifestKey = `${shopid}_${itemid}`;
@@ -193,8 +219,8 @@ export default async function handler(req, res) {
               title: manifest[manifestKey].title || '',
               description: '',
               image: manifest[manifestKey].image,
-              url: target.toString(),
-              finalUrl: target.toString(),
+              url: resolvedTarget.toString(),
+              finalUrl: resolvedTarget.toString(),
               source: 'shopee.tw',
               via: 'manifest',
             });
@@ -209,8 +235,8 @@ export default async function handler(req, res) {
           title: apiResult.title,
           description: '',
           image: apiResult.image,
-          url: target.toString(),
-          finalUrl: target.toString(),
+          url: resolvedTarget.toString(),
+          finalUrl: resolvedTarget.toString(),
           source: 'shopee.tw',
           via: 'shopee-api',
         });
@@ -220,7 +246,7 @@ export default async function handler(req, res) {
     // Shopee blocked → return empty (frontend uses SVG fallback)
     return res.status(200).json({
       title: '', description: '', image: '',
-      url: target.toString(), finalUrl: target.toString(),
+      url: resolvedTarget.toString(), finalUrl: resolvedTarget.toString(),
       source: 'shopee.tw', via: 'blocked',
     });
   }

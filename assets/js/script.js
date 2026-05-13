@@ -117,7 +117,7 @@
   }
 
   function shopeeManifestKey(url) {
-    const m = (url || '').match(/shopee\.tw\/product\/(\d+)\/(\d+)/);
+    const m = (url || '').match(/shopee\.tw\/(?:product\/)?(\d+)\/(\d+)/);
     return m ? `${m[1]}_${m[2]}` : null;
   }
   // ─────────────────────────────────────────────────────────────────────────
@@ -148,6 +148,16 @@
     return img;
   }
 
+  function escapeHtml(value = '') {
+    return String(value).replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+  }
+
+  function categoryLabel(cat = 'robot') {
+    return ({ robot: '智能機器人', pet: 'AI 智能寵物', steam: 'STEAM 編程', plush: '語音玩偶', drone: '智能飛行', learn: 'AI 學習機' })[cat] || 'AI 玩具';
+  }
+
   function applyPreviewToCard(card, preview) {
     if (!preview) return;
     const thumb = card.querySelector('.product-thumb, .detail-main-img, .link-preview-thumb');
@@ -164,6 +174,11 @@
     if (desc && preview.description) desc.textContent = preview.description;
     const links = card.querySelectorAll('[data-preview-field="link"]');
     if (links.length && preview.url) links.forEach(link => { link.href = preview.url; });
+  }
+
+  function fetchPreview(url) {
+    return fetch(previewEndpoint + encodeURIComponent(url), { signal: AbortSignal.timeout(12000) })
+      .then(res => res.ok ? res.json() : Promise.reject(new Error('preview failed')));
   }
 
   function loadPreview(card) {
@@ -183,7 +198,17 @@
       return;
     }
 
-    // Check static manifest first (zero API cost for Shopee products)
+    const loadFromApi = () => fetchPreview(url)
+      .then(data => {
+        previewCache.set(url, data);
+        done(data);
+      })
+      .catch(() => {
+        previewCache.set(url, null);
+        done(null);
+      });
+
+    // Static manifest first; if manifest is empty, still call API instead of giving up.
     const manifestKey = shopeeManifestKey(url);
     if (manifestKey) {
       getManifest().then(manifest => {
@@ -193,40 +218,76 @@
           previewCache.set(url, data);
           done(data);
         } else {
-          // Not in manifest → skip API call for Shopee (always blocked)
-          previewCache.set(url, null);
-          done(null);
+          loadFromApi();
         }
-      });
+      }).catch(loadFromApi);
       return;
     }
 
-    fetch(previewEndpoint + encodeURIComponent(url), { signal: AbortSignal.timeout(9000) })
-      .then(res => res.ok ? res.json() : Promise.reject(new Error('preview failed')))
-      .then(data => {
-        previewCache.set(url, data);
-        done(data);
-      })
-      .catch(() => {
-        previewCache.set(url, null);
-        done(null);
-      });
+    loadFromApi();
   }
 
-  const previewCards = [...document.querySelectorAll('.product-card, .link-preview-card')]
-    .filter(card => getCardPreviewUrl(card));
-  if ('IntersectionObserver' in window) {
-    const previewObserver = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (!entry.isIntersecting) return;
-        previewObserver.unobserve(entry.target);
-        loadPreview(entry.target);
-      });
-    }, { rootMargin: '220px' });
-    previewCards.forEach(card => previewObserver.observe(card));
-  } else {
-    previewCards.forEach(loadPreview);
+  function productCardHtml(item) {
+    const url = item.url || item.productUrl || '#';
+    const affiliateUrl = item.affiliateUrl || url;
+    const title = item.title || 'AI 玩具商品';
+    const cat = item.category || 'robot';
+    const badge = item.badge || '後台新增';
+    const image = item.image ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async">` : '<span>🤖</span>';
+    return `
+      <article class="product-card admin-product-card" data-cat="${escapeHtml(cat)}" data-preview-url="${escapeHtml(url)}">
+        <a href="${escapeHtml(affiliateUrl)}" target="_blank" rel="nofollow sponsored noopener" class="product-thumb" aria-label="${escapeHtml(title)}">
+          <span class="product-badge deal">${escapeHtml(badge)}</span>
+          ${image}
+        </a>
+        <div class="product-body">
+          <div class="product-cat">${escapeHtml(item.categoryLabel || categoryLabel(cat))}</div>
+          <h3 class="product-title"><a href="${escapeHtml(affiliateUrl)}" target="_blank" rel="nofollow sponsored noopener">${escapeHtml(title)}</a></h3>
+          <p class="product-desc">${escapeHtml(item.description || '由後台建立的聯盟商品卡片')}</p>
+          <div class="product-meta"><span class="product-rating">★ ${escapeHtml(item.platform || 'Affiliate')}</span><span>${escapeHtml(item.source || 'admin')}</span></div>
+          <div class="product-price-row">
+            ${item.price ? `<span class="product-price">${escapeHtml(item.price)}</span>` : ''}
+            ${item.oldPrice ? `<span class="product-price-old">${escapeHtml(item.oldPrice)}</span>` : ''}
+          </div>
+          <div class="product-buttons">
+            <a href="${escapeHtml(affiliateUrl)}" target="_blank" class="btn-mini btn-shopee" rel="nofollow sponsored noopener">查看優惠</a>
+            <a href="${escapeHtml(url)}" target="_blank" class="btn-mini btn-momo" rel="nofollow noopener">商品頁</a>
+          </div>
+        </div>
+      </article>`;
   }
+
+  async function loadAdminProducts() {
+    if (!productGrid) return;
+    try {
+      const res = await fetch('/assets/data/admin-products.json', { cache: 'no-cache' });
+      if (!res.ok) return;
+      const items = await res.json();
+      if (!Array.isArray(items) || !items.length) return;
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = items.map(productCardHtml).join('');
+      productGrid.prepend(...wrapper.children);
+    } catch {}
+  }
+
+  function observePreviewCards(scope = document) {
+    const previewCards = [...scope.querySelectorAll('.product-card, .link-preview-card')]
+      .filter(card => getCardPreviewUrl(card));
+    if ('IntersectionObserver' in window) {
+      const previewObserver = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          previewObserver.unobserve(entry.target);
+          loadPreview(entry.target);
+        });
+      }, { rootMargin: '220px' });
+      previewCards.forEach(card => previewObserver.observe(card));
+    } else {
+      previewCards.forEach(loadPreview);
+    }
+  }
+
+  loadAdminProducts().finally(() => observePreviewCards());
 
   const previewForm = document.getElementById('linkPreviewForm');
   if (previewForm) {

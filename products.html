@@ -85,7 +85,10 @@
     <div>
       <p class="tool-eyebrow">聯盟商品圖片機制</p>
       <h2 id="linkPreviewTitle">貼上商品聯盟網址，自動產生商品卡片</h2>
-      <p>後端 API 會讀取商品頁的 og:title、og:image、og:description，再回傳給前台；避免瀏覽器 CORS 限制，也保留原本 Emoji 圖示作為 fallback。</p>
+      <p>後端 API 會讀取商品頁的 og:title、og:image、og:description，再回傳給前台；現在也支援後台儲存商品卡片，之後會顯示在商品頁最前面。</p>
+      <div class="tool-actions">
+        <a class="btn-mini btn-shopee" href="admin.html">進入後台管理</a>
+      </div>
       <form id="linkPreviewForm" class="link-preview-form">
         <input type="url" name="url" placeholder="貼上 Shopee / Momo / PChome 商品或聯盟網址" required>
         <button type="submit" class="btn">產生卡片</button>
