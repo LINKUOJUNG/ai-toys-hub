@@ -39,9 +39,44 @@
     });
   }
 
+  /* -------- 部落格分類篩選 -------- */
+  const blogGrid = document.querySelector('.blog-grid');
+  const blogFilterChips = blogGrid
+    ? [...document.querySelectorAll('.filter-bar .filter-chip:not([data-filter])')]
+    : [];
+  const blogCategoryMap = {
+    all: '全部文章',
+    guide: '選購指南',
+    review: '開箱評測',
+    deal: '優惠攻略',
+    age: '年齡推薦',
+    education: '教育趨勢'
+  };
+
+  function applyBlogFilter(label) {
+    if (!blogGrid) return;
+    const cards = blogGrid.querySelectorAll('.blog-card');
+    cards.forEach(card => {
+      const tag = card.querySelector('.blog-tag')?.textContent.trim() || '';
+      card.style.display = (!label || label === '全部文章' || tag === label) ? '' : 'none';
+    });
+  }
+
+  if (blogFilterChips.length) {
+    blogFilterChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const label = chip.textContent.trim();
+        blogFilterChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        applyBlogFilter(label);
+      });
+    });
+  }
+
   /* -------- 一般 filter-chip 切換 active (含價格、排序等) -------- */
   document.querySelectorAll('.filter-bar').forEach(bar => {
     const chips = bar.querySelectorAll('.filter-chip:not([data-filter])');
+    if (blogGrid && bar.closest('.container')?.querySelector('.blog-grid')) return;
     chips.forEach(chip => {
       chip.addEventListener('click', () => {
         chips.forEach(c => c.classList.remove('active'));
@@ -216,13 +251,24 @@
     const chip = document.querySelector(`.filter-chip[data-filter="${cat}"]`);
     if (chip) chip.click();
   }
+  if (cat && blogGrid) {
+    const targetLabel = blogCategoryMap[cat] || cat;
+    const chip = blogFilterChips.find(c => c.textContent.trim() === targetLabel);
+    if (chip) chip.click();
+  }
 
-  /* -------- 搜尋框 Enter 跳轉 -------- */
+  /* -------- 搜尋框 Enter 跳轉 / 部落格即時篩選 -------- */
   document.querySelectorAll('.search-box input').forEach(input => {
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         const q = input.value.trim();
-        if (q) {
+        if (!q) return;
+        if (blogGrid) {
+          const query = q.toLowerCase();
+          blogGrid.querySelectorAll('.blog-card').forEach(card => {
+            card.style.display = card.textContent.toLowerCase().includes(query) ? '' : 'none';
+          });
+        } else {
           window.location.href = 'products.html?q=' + encodeURIComponent(q);
         }
       }
@@ -232,7 +278,9 @@
   /* -------- 平滑捲動到錨點 -------- */
   document.querySelectorAll('a[href^="#"]').forEach(link => {
     link.addEventListener('click', e => {
-      const target = document.querySelector(link.getAttribute('href'));
+      const selector = link.getAttribute('href');
+      if (!selector || selector === '#') return;
+      const target = document.querySelector(selector);
       if (target && target.id) {
         e.preventDefault();
         target.scrollIntoView({ behavior: 'smooth', block: 'start' });

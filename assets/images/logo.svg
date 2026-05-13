@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">AI Toys Hub logo</title>
+  <desc id="desc">Rounded robot face logo for AI Toys Hub</desc>
+  <rect width="512" height="512" rx="112" fill="#ff424d"/>
+  <rect x="106" y="146" width="300" height="230" rx="56" fill="#fff"/>
+  <circle cx="200" cy="252" r="32" fill="#202124"/>
+  <circle cx="312" cy="252" r="32" fill="#202124"/>
+  <path d="M190 320c38 30 94 30 132 0" fill="none" stroke="#202124" stroke-width="24" stroke-linecap="round"/>
+  <path d="M256 146V92" stroke="#fff" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="256" cy="76" r="28" fill="#fff"/>
+</svg>
