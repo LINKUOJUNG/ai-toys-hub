@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "id": "p_1778641327620_e3b48b",
+    "title": "後台測試商品（可刪除）",
+    "description": "測試後台寫入與圖片顯示",
+    "image": "https://ai-toys-hub.vercel.app/assets/images/logo.svg",
+    "url": "https://ai-toys-hub.vercel.app/products.html",
+    "affiliateUrl": "https://ai-toys-hub.vercel.app/products.html",
+    "category": "robot",
+    "categoryLabel": "智能機器人",
+    "platform": "ai-toys-hub.vercel.app",
+    "source": "admin",
+    "price": "NT$ 0",
+    "oldPrice": "",
+    "badge": "測試",
+    "createdAt": "2026-05-13T03:02:07.620Z",
+    "updatedAt": "2026-05-13T03:02:07.620Z"
+  }
+]
